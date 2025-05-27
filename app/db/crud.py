@@ -31,7 +31,7 @@ def add_transaction(db: Session, account_id: int, amount: float, description: st
         amount=amount,
         description=description,
         type=type,
-        date=date
+        date=date if date else datetime.utcnow()
     )
     db.add(transaction)
 

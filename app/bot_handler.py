@@ -48,7 +48,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
             acc = crud.create_account(db, user.id, acc_name, 0.0)
 
         txn = crud.add_transaction(
-            db, acc.id, parsed["amount"], parsed["description"], parsed["type"], parsed["date"]
+            db, acc.id, parsed["amount"], parsed["description"], parsed["type"], parsed["date"] if parsed["date"] else None
         )
 
         reply = f"{parsed['type'].title()} of ₹{parsed['amount']} recorded in {acc_name}."
