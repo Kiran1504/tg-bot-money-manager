@@ -9,3 +9,7 @@ app = FastAPI()
 
 # Add webhook route
 app.include_router(telegram_webhook, prefix="/webhook")
+
+app.get("/")
+def greet():
+    return {"message": "Welcome to the Telegram Bot API!"}
