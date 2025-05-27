@@ -48,7 +48,7 @@ def parse_message(text: str) -> Dict:
     balance_set_match = re.search(r"(\w+)\s*(?:is|=)\s*(-?\d+(?:\.\d{1,2})?)", text)
     if balance_set_match:
         print("Balance set match found:", balance_set_match.groups())
-        account = balance_set_match.group(1).capitalize()
+        account = balance_set_match.group(1).upper()
         amount = float(balance_set_match.group(2))
         result.update({
             "type": "balance_adjustment",
@@ -64,9 +64,9 @@ def parse_message(text: str) -> Dict:
         from_match = re.search(r"from\s+(\w+)", text)
         to_match = re.search(r"to\s+(\w+)", text)
         if from_match:
-            result["from_account"] = from_match.group(1).capitalize()
+            result["from_account"] = from_match.group(1).upper()
         if to_match:
-            result["account"] = to_match.group(1).capitalize()
+            result["account"] = to_match.group(1).upper()
         amt_match = re.search(r"(\d+(?:,\d{3})*(?:\.\d{1,2})?)", text)
         if amt_match:
             result["amount"] = float(amt_match.group(1).replace(',', ''))
@@ -81,7 +81,7 @@ def parse_message(text: str) -> Dict:
             result["amount"] = float(amt_match.group(1).replace(',', ''))
         acc_match = re.search(r"(?:in|to|into)\s+(\w+)", text)
         if acc_match:
-            result["account"] = acc_match.group(1).capitalize()
+            result["account"] = acc_match.group(1).upper()
         else:
             result["account"] = "Cash"
 
@@ -93,7 +93,7 @@ def parse_message(text: str) -> Dict:
             result["amount"] = float(amt_match.group(1).replace(',', ''))
         acc_match = re.search(r"(?:from|via|using|in)\s+(\w+)", text)
         if acc_match:
-            result["account"] = acc_match.group(1).capitalize()
+            result["account"] = acc_match.group(1).upper()
 
     # Fallback amount extraction if still not set
     if result["amount"] == 0.0:
