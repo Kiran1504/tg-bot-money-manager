@@ -35,6 +35,10 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
 
     parsed = parse_message(text)
     reply = "Sorry, I couldn't understand that."
+    print("-" * 40,"\n")
+    print(f"Received message from {name} ({telegram_id}): {text}")
+    print(f"Parsed message: {parsed}")
+    print("-" * 40,"\n")
 
     # CREATE income/expense
     if parsed["type"] in ["income", "expense"] and parsed["action"] == "create":

@@ -25,13 +25,13 @@ def get_account_by_name(db: Session, user_id: int, account_name: str):
         models.Account.name.ilike(account_name)
     ).first()
 
-def add_transaction(db: Session, account_id: int, amount: float, description: str, type: str):
+def add_transaction(db: Session, account_id: int, amount: float, description: str, type: str, date: datetime =  datetime.utcnow()):
     transaction = models.Transaction(
         account_id=account_id,
         amount=amount,
         description=description,
         type=type,
-        date=datetime.utcnow()
+        date=date
     )
     db.add(transaction)
 
