@@ -79,8 +79,8 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
     # BALANCE
     elif parsed["type"] == "balance" and parsed["action"] == "read":
         accounts = crud.get_all_balances(db, user.id)
-        summary = "\n".join([f"<bold>{a.name}:</bold> ₹{a.balance:.2f}" for a in accounts])
-        reply = f"<bold>Current balances:</bold>\n\n{summary}"
+        summary = "\n".join([f"<b>{a.name}:</b> ₹{a.balance:.2f}" for a in accounts])
+        reply = f"<b>Current balances:</b>\n\n{summary}"
 
     # BALANCE SET
     elif parsed["type"] == "balance_adjustment":
@@ -94,7 +94,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         txn = crud.add_transaction(
             db, acc.id, abs(diff), "Balance correction", txn_type
         )
-        reply = f"{acc_name} balance set to <bold>₹{parsed['amount']}</bold> (adjusted by {txn_type} of ₹{abs(diff):.2f})"
+        reply = f"{acc_name} balance set to <b>₹{parsed['amount']}</b> <i>(adjusted by {txn_type} of ₹{abs(diff):.2f})</i>"
 
     # TRANSFER
     elif parsed["type"] == "transfer":
@@ -112,7 +112,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         crud.add_transaction(db, from_acc.id, amt, parsed["description"], "expense")
         crud.add_transaction(db, to_acc.id, amt, parsed["description"], "income")
 
-        reply = f"Transferred <bold>₹{amt}</bold> from {from_acc_name} to {to_acc_name}."
+        reply = f"Transferred <b>₹{amt}</b> from <i>{from_acc_name}</i> to <i>{to_acc_name}</i>."
 
     elif parsed["action"] == "delete":
         acc_name = parsed.get("account", "Cash")
@@ -120,7 +120,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         if acc:
             deleted_txn = crud.delete_last_transaction(db, acc.id)
             if deleted_txn:
-                reply = f"Deleted last {deleted_txn.type} of <bold>₹{deleted_txn.amount}</bold> from {acc_name}."
+                reply = f"Deleted last {deleted_txn.type} of <b>₹{deleted_txn.amount}</b> from {acc_name}."
             else:
                 reply = f"No transactions found in {acc_name} to delete."
         else:
@@ -158,15 +158,15 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                 reply = f"No transactions found in {acc_name}."
             else:
                 lines = [
-                    f"{i}. {txn.date.strftime('%d-%b')}: ₹{txn.amount:.2f} - {txn.type.title()} ({txn.description})"
-                    for i, txn in enumerate(txns)
+                    f"- {txn.date.strftime('%d-%b')}: <b>₹{txn.amount:.2f}</b> - <i>{txn.type.title()} ({txn.description})</i>"
+                    for txn in txns
                 ]
-                reply = f"Last {len(txns)} transactions in {acc_name}:\n\n" + "\n".join(lines)
+                reply = f"<b>Last {len(txns)} transactions in {acc_name}:</b>\n\n" + "\n".join(lines)
 
     async with httpx.AsyncClient() as client:
         await client.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": chat_id, "text": reply}
+            json={"chat_id": chat_id, "text": reply, "parse_mode": "HTML"}
         )
 
     return {"ok": True}
