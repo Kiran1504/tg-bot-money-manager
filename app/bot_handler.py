@@ -94,7 +94,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         txn = crud.add_transaction(
             db, acc.id, abs(diff), "Balance correction", txn_type
         )
-        reply = f"{acc_name} balance set to <bold>₹{parsed['amount']}</bold> <mono>(adjusted by {txn_type} of ₹{abs(diff):.2f})</mono>"
+        reply = f"{acc_name} balance set to <bold>₹{parsed['amount']}</bold> <i>(adjusted by {txn_type} of ₹{abs(diff):.2f})</i>"
 
     # TRANSFER
     elif parsed["type"] == "transfer":
@@ -112,7 +112,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         crud.add_transaction(db, from_acc.id, amt, parsed["description"], "expense")
         crud.add_transaction(db, to_acc.id, amt, parsed["description"], "income")
 
-        reply = f"Transferred <bold>₹{amt}</bold> from <mono>{from_acc_name}</mono> to <mono>{to_acc_name}</mono>."
+        reply = f"Transferred <bold>₹{amt}</bold> from <i>{from_acc_name}</i> to <i>{to_acc_name}</i>."
 
     elif parsed["action"] == "delete":
         acc_name = parsed.get("account", "Cash")
@@ -158,7 +158,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                 reply = f"No transactions found in {acc_name}."
             else:
                 lines = [
-                    f"- {txn.date.strftime('%d-%b')}: <b>₹{txn.amount:.2f}</b> - <mono>{txn.type.title()} ({txn.description})</mono>"
+                    f"- {txn.date.strftime('%d-%b')}: <b>₹{txn.amount:.2f}</b> - <i>{txn.type.title()} ({txn.description})</i>"
                     for txn in txns
                 ]
                 reply = f"<b>Last {len(txns)} transactions in {acc_name}:</b>\n\n" + "\n".join(lines)
