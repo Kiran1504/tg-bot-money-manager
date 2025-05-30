@@ -2,9 +2,13 @@ from google import genai
 from typing import Optional, Literal
 from dotenv import load_dotenv
 from pydantic import BaseModel
+import datetime 
 import json
 import os
+import pytz
+
 load_dotenv()
+india = pytz.timezone("Asia/Kolkata")
 
 class ExpenseParsed(BaseModel):
     type: Literal["income", "expense", "transfer", "balance", "balance_adjustment", "transaction","unknown"]
@@ -19,10 +23,8 @@ class ExpenseParsed(BaseModel):
 # Set up Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
 MODEL= os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
-print("GEMINI_API_KEY:", GEMINI_API_KEY)
 
 client = genai.Client(api_key=GEMINI_API_KEY)
-
 
 def parse_message(text: str) -> dict:
     prompt = f"""
@@ -85,12 +87,35 @@ Parse this: "{text}"
         return ExpenseParsed(type="unknown", action="create", amount=0.0).dict()
 
 
-test_message = "received 500 from client on 25 May"
-parsed_result = parse_message(test_message)
-print(f"Parsed Result: {parsed_result}")
-# print(type(eval(parsed_result)))
 
-
+def parse_time_range(msg: str):
+    prompt = f"""
+Extract the start and end date from the following message. 
+Today's date is {datetime.now(pytz.timezone("Asia/Kolkata")).strftime('%Y-%m-%d')}.
+The format should be:
+start: YYYY-MM-DD
+end: YYYY-MM-DD
+Message: "{msg}"
+Reply only with start and end in the format:
+start: YYYY-MM-DD
+end: YYYY-MM-DD
+"""
+    try:
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=[prompt],
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": {
+                    "start": str,
+                    "end": str
+                }
+            }
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print("Gemini time range parsing error:", e)
+        return {"start": None, "end": None}
 
 
 # Test cases
@@ -117,7 +142,7 @@ test_cases = [
 ]
 
 
-for message in test_cases:
-    parsed = parse_message(message)
-    print(f"Message: {message}\nParsed: {parsed}\n")
-    print(type(parsed))
+# for message in test_cases:
+#     parsed = parse_message(message)
+#     print(f"Message: {message}\nParsed: {parsed}\n")
+#     print(type(parsed))

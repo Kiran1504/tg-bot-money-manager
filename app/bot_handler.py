@@ -2,8 +2,10 @@
 from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.utils.nlp import parse_message, parse_time_range
+from app.utils.generate_pdf import generate_pdf_report
+from tempfile import NamedTemporaryFile
 from app.db import crud
-from app.utils.nlp import parse_message
 import httpx
 import os
 
@@ -33,12 +35,29 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
     if not user:
         user = crud.create_user(db, telegram_id, name)
 
+    if text == "export":
+        start, end = parse_time_range(message)
+        with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            generate_pdf_report(user.id, db, tmp.name, start, end)
+            try:
+                with open(tmp.name, "rb") as f:
+                    await client.post(
+                        f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
+                        files={"document": f},
+                        data={"chat_id": chat_id, "caption": f"📄 Expense Report"}
+                    )
+            finally:
+                os.remove(tmp.name)
+        return {"ok": True}
+
     parsed = parse_message(text)
     reply = "Sorry, I couldn't understand that."
     print("-" * 40,"\n")
     print(f"Received message from {name} ({telegram_id}): {text}")
     print(f"Parsed message: {parsed}")
     print("-" * 40,"\n")
+
+    
 
     # CREATE income/expense
     if parsed["type"] in ["income", "expense"] and parsed["action"] == "create":
@@ -60,8 +79,8 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
     # BALANCE
     elif parsed["type"] == "balance" and parsed["action"] == "read":
         accounts = crud.get_all_balances(db, user.id)
-        summary = "\n".join([f"{a.name}: ₹{a.balance:.2f}" for a in accounts])
-        reply = f"Current balances:\n{summary}"
+        summary = "\n".join([f"**{a.name}:** ₹{a.balance:.2f}" for a in accounts])
+        reply = f"**Current balances:**\n\n{summary}"
 
     # BALANCE SET
     elif parsed["type"] == "balance_adjustment":
@@ -75,7 +94,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         txn = crud.add_transaction(
             db, acc.id, abs(diff), "Balance correction", txn_type
         )
-        reply = f"{acc_name} balance set to ₹{parsed['amount']} (adjusted by {txn_type} of ₹{abs(diff):.2f})"
+        reply = f"{acc_name} balance set to **₹{parsed['amount']}** __(adjusted by {txn_type} of ₹{abs(diff):.2f})__"
 
     # TRANSFER
     elif parsed["type"] == "transfer":
@@ -93,7 +112,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         crud.add_transaction(db, from_acc.id, amt, parsed["description"], "expense")
         crud.add_transaction(db, to_acc.id, amt, parsed["description"], "income")
 
-        reply = f"Transferred ₹{amt} from {from_acc_name} to {to_acc_name}."
+        reply = f"Transferred **₹{amt}** from __{from_acc_name}__ to __{to_acc_name}__."
 
     elif parsed["action"] == "delete":
         acc_name = parsed.get("account", "Cash")
@@ -139,10 +158,10 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                 reply = f"No transactions found in {acc_name}."
             else:
                 lines = [
-                    f"{txn.date.strftime('%d-%b')}: ₹{txn.amount:.2f} - {txn.type.title()} ({txn.description})"
+                    f"- {txn.date.strftime('%d-%b')}: **₹{txn.amount:.2f}** - __{txn.type.title()} ({txn.description})__"
                     for txn in txns
                 ]
-                reply = f"Last {len(txns)} transactions in {acc_name}:\n" + "\n".join(lines)
+                reply = f"**Last {len(txns)} transactions in {acc_name}:**\n\n" + "\n".join(lines)
 
     async with httpx.AsyncClient() as client:
         await client.post(
