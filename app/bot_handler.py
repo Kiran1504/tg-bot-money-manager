@@ -94,7 +94,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         txn = crud.add_transaction(
             db, acc.id, abs(diff), "Balance correction", txn_type
         )
-        reply = f"{acc_name} balance set to <bold>₹{parsed['amount']}</bold> <i>(adjusted by {txn_type} of ₹{abs(diff):.2f})</i>"
+        reply = f"{acc_name} balance set to <bold>₹{parsed['amount']}</bold> (adjusted by {txn_type} of ₹{abs(diff):.2f})"
 
     # TRANSFER
     elif parsed["type"] == "transfer":
@@ -112,7 +112,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         crud.add_transaction(db, from_acc.id, amt, parsed["description"], "expense")
         crud.add_transaction(db, to_acc.id, amt, parsed["description"], "income")
 
-        reply = f"Transferred <bold>₹{amt}</bold> from <i>{from_acc_name}</i> to <i>{to_acc_name}</i>."
+        reply = f"Transferred <bold>₹{amt}</bold> from {from_acc_name} to {to_acc_name}."
 
     elif parsed["action"] == "delete":
         acc_name = parsed.get("account", "Cash")
@@ -158,15 +158,15 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                 reply = f"No transactions found in {acc_name}."
             else:
                 lines = [
-                    f"- {txn.date.strftime('%d-%b')}: <b>₹{txn.amount:.2f}</b> - <i>{txn.type.title()} ({txn.description})</i>"
-                    for txn in txns
+                    f"{i}. {txn.date.strftime('%d-%b')}: ₹{txn.amount:.2f} - {txn.type.title()} ({txn.description})"
+                    for i, txn in enumerate(txns)
                 ]
-                reply = f"<b>Last {len(txns)} transactions in {acc_name}:</b>\n\n" + "\n".join(lines)
+                reply = f"Last {len(txns)} transactions in {acc_name}:\n\n" + "\n".join(lines)
 
     async with httpx.AsyncClient() as client:
         await client.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": chat_id, "text": reply, "parse_mode": "HTML"}
+            json={"chat_id": chat_id, "text": reply}
         )
 
     return {"ok": True}
