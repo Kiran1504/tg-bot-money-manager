@@ -2,7 +2,7 @@ from google import genai
 from typing import Optional, Literal
 from dotenv import load_dotenv
 from pydantic import BaseModel
-import datetime 
+from datetime import datetime 
 import json
 import os
 import pytz
