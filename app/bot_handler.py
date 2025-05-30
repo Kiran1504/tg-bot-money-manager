@@ -95,7 +95,54 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
 
         reply = f"Transferred ₹{amt} from {from_acc_name} to {to_acc_name}."
 
-    # TODO: Add handlers for update/delete if needed
+    elif parsed["action"] == "delete":
+        acc_name = parsed.get("account", "Cash")
+        acc = crud.get_account_by_name(db, user.id, acc_name)
+        if acc:
+            deleted_txn = crud.delete_last_transaction(db, acc.id)
+            if deleted_txn:
+                reply = f"Deleted last {deleted_txn.type} of ₹{deleted_txn.amount} from {acc_name}."
+            else:
+                reply = f"No transactions found in {acc_name} to delete."
+        else:
+            reply = f"Account {acc_name} does not exist."
+
+    # UPDATE last transaction
+    elif parsed["action"] == "update":
+        acc_name = parsed.get("account", "Cash")
+        acc = crud.get_account_by_name(db, user.id, acc_name)
+        if acc:
+            updated_txn = crud.update_last_transaction(
+                db, acc.id,
+                new_amount=parsed["amount"],
+                new_description=parsed["description"],
+                new_type=parsed["type"],
+                new_date=parsed["date"]
+            )
+            if updated_txn:
+                reply = f"Updated last transaction in {acc_name} to ₹{parsed['amount']} ({parsed['description']})."
+            else:
+                reply = f"No transactions found in {acc_name} to update."
+        else:
+            reply = f"Account {acc_name} does not exist."
+
+    elif parsed["action"] == "read" and parsed["type"] == "transaction":
+        acc_name = parsed.get("account", "Cash")
+        limit = parsed.get("limit", 5)
+
+        acc = crud.get_account_by_name(db, user.id, acc_name)
+        if not acc:
+            reply = f"No account found with name {acc_name}."
+        else:
+            txns = crud.get_recent_transactions(db, acc.id, limit)
+            if not txns:
+                reply = f"No transactions found in {acc_name}."
+            else:
+                lines = [
+                    f"{txn.date.strftime('%d-%b')}: ₹{txn.amount:.2f} - {txn.type.title()} ({txn.description})"
+                    for txn in txns
+                ]
+                reply = f"Last {len(txns)} transactions in {acc_name}:\n" + "\n".join(lines)
 
     async with httpx.AsyncClient() as client:
         await client.post(

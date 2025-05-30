@@ -48,3 +48,61 @@ def add_transaction(db: Session, account_id: int, amount: float, description: st
 
 def get_all_balances(db: Session, user_id: int):
     return db.query(models.Account).filter(models.Account.user_id == user_id).all()
+
+def delete_last_transaction(db: Session, account_id: int):
+    txn = db.query(models.Transaction).filter(
+        models.Transaction.account_id == account_id
+    ).order_by(models.Transaction.date.desc()).first()
+
+    if txn:
+        # Reverse balance
+        account = db.query(models.Account).filter(models.Account.id == account_id).first()
+        if txn.type == 'expense':
+            account.balance += txn.amount
+        elif txn.type == 'income':
+            account.balance -= txn.amount
+
+        db.delete(txn)
+        db.commit()
+        return txn
+    return None
+
+def update_last_transaction(
+    db: Session, account_id: int, new_amount: float, new_description: str = None,
+    new_type: str = None, new_date: datetime = None
+):
+    txn = db.query(models.Transaction).filter(
+        models.Transaction.account_id == account_id
+    ).order_by(models.Transaction.date.desc()).first()
+
+    if not txn:
+        return None
+
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+
+    # Reverse old transaction impact
+    if txn.type == 'expense':
+        account.balance += txn.amount
+    elif txn.type == 'income':
+        account.balance -= txn.amount
+
+    # Apply new values
+    txn.amount = new_amount
+    txn.description = new_description or txn.description
+    txn.type = new_type or txn.type
+    txn.date = new_date or txn.date
+
+    # Apply new impact
+    if txn.type == 'expense':
+        account.balance -= txn.amount
+    elif txn.type == 'income':
+        account.balance += txn.amount
+
+    db.commit()
+    db.refresh(txn)
+    return txn
+
+def get_recent_transactions(db: Session, account_id: int, limit: int = 5):
+    return db.query(models.Transaction).filter(
+        models.Transaction.account_id == account_id
+    ).order_by(models.Transaction.date.desc()).limit(limit).all()

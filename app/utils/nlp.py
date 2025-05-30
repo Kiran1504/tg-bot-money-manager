@@ -1,136 +1,123 @@
-import re
-from typing import Dict
-from datetime import datetime
-import dateparser
+from google import genai
+from typing import Optional, Literal
+from dotenv import load_dotenv
+from pydantic import BaseModel
+import json
+import os
+load_dotenv()
 
-def extract_date(text: str) -> str:
-    text_clean = text.lower().replace(",", "")
-    date_phrases = ["today", "yesterday", "a week ago"]
-    date_match = re.search(r"on\s+(\d{1,2}(?:st|nd|rd|th)?(?:\s+\w+)?|\w+\s+\d{1,2})", text_clean)
-    if date_match:
-        date_phrase = date_match.group(1)
-    else:
-        for phrase in date_phrases:
-            if phrase in text_clean:
-                date_phrase = phrase
-                break
-        else:
-            return ""
-    parsed_date = dateparser.parse(date_phrase)
-    if parsed_date:
-        return parsed_date.strftime("%Y-%m-%d")
-    return ""
+class ExpenseParsed(BaseModel):
+    type: Literal["income", "expense", "transfer", "balance", "balance_adjustment", "transaction","unknown"]
+    action: Literal["create", "update", "delete", "read"]
+    amount: float
+    account: str = "Cash"
+    description: str = "Miscellaneous"
+    date: Optional[str] = None
+    from_account: Optional[str] = None
+    limit: Optional[int] = None 
 
-def parse_message(text: str) -> Dict:
-    text = text.lower().strip()
-    result = {
-        "type": "unknown",
-        "action": "create",
-        "amount": 0.0,
-        "account": "Cash",
-        "description": "Miscellaneous",
-        "date": None
-    }
+# Set up Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
+MODEL= os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
+print("GEMINI_API_KEY:", GEMINI_API_KEY)
 
-    result["date"] = extract_date(text)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-    # CRUD commands
-    if "balance" in text and "of" not in text:
-        result["type"] = "balance"
-        result["action"] = "read"
-        return result
-    if "delete" in text:
-        result["action"] = "delete"
-    elif "update" in text:
-        result["action"] = "update"
 
-    # Balance adjustment
-    balance_set_match = re.search(r"(\w+)\s*(?:is|=)\s*(-?\d+(?:\.\d{1,2})?)", text)
-    if balance_set_match:
-        print("Balance set match found:", balance_set_match.groups())
-        account = balance_set_match.group(1).upper()
-        amount = float(balance_set_match.group(2))
-        result.update({
-            "type": "balance_adjustment",
-            "account": account,
-            "amount": amount,
-            "description": f"Set {account} balance to {amount}"
-        })
-        return result
+def parse_message(text: str) -> dict:
+    prompt = f"""
+You are a finance assistant bot. Extract structured data in the following JSON format:
 
-    # Transfer detection
-    if any(word in text for word in ["transfer", "moved", "move", "shifted"]):
-        result["type"] = "transfer"
-        from_match = re.search(r"from\s+(\w+)", text)
-        to_match = re.search(r"to\s+(\w+)", text)
-        if from_match:
-            result["from_account"] = from_match.group(1).upper()
-        if to_match:
-            result["account"] = to_match.group(1).upper()
-        amt_match = re.search(r"(\d+(?:,\d{3})*(?:\.\d{1,2})?)", text)
-        if amt_match:
-            result["amount"] = float(amt_match.group(1).replace(',', ''))
-        result["description"] = f"Transfer from {result.get('from_account', '')} to {result.get('account', '')}"
-        return result
+{{
+  "type": "income | expense | transfer | balance | balance_adjustment | transaction | unknown",
+  "action": "create | update | delete | read",
+  "amount": float (₹),
+  "account": string (e.g., 'Cash', 'HDFC', 'SBI'),
+  "description": string (e.g., 'Groceries', 'Salary'),
+  "date": YYYY-MM-DD or null,
+  "from_account": string (only for transfers),
+  "limit": int (optional, for transaction history requests)
+}}
 
-    # Income with 'in' or 'to' account
-    if any(word in text for word in ["received", "got", "credited", "income", "earned", "added", "from"]):
-        result["type"] = "income"
-        amt_match = re.search(r"(\d+(?:,\d{3})*(?:\.\d{1,2})?)", text)
-        if amt_match:
-            result["amount"] = float(amt_match.group(1).replace(',', ''))
-        acc_match = re.search(r"(?:in|to|into)\s+(\w+)", text)
-        if acc_match:
-            result["account"] = acc_match.group(1).upper()
-        else:
-            result["account"] = "Cash"
+Instructions:
+1. Types:
+- "income": Money received (e.g., salary, gifts).
+- "expense": Money spent (e.g., groceries, bills).
+- "transfer": **ONLY WHEN `TRANSFER` or `t:` IS MENTIONED in the input text** (e.g., transfer 200 from Cash to HDFC,t: 1111 from HDFC to SBI, t: ATM withdrawal).
+- "balance": Request for current balance of an account.
+- "balance_adjustment": Directly setting a value to an account (e.g., "Cash is 1000", "HDFC = 0").
+- "transaction": When user asks for last few transactions or transaction history.
+- "unknown": If the type cannot be determined.
+2. Actions:
+- "create": Adding a new income or expense.
+- "update": Modifying an existing income or expense.
+- "delete": Removing an income or expense.
+- "read": Fetching details about the account.
+3. "account" is Compulsory for all types except "balance".
+4. "from_account" is only required for transfers.
 
-    # Expense keywords
-    elif any(word in text for word in ["spent", "paid", "gave", "bought", "sent", "debited", "purchased", "to"]):
-        result["type"] = "expense"
-        amt_match = re.search(r"(\d+(?:,\d{3})*(?:\.\d{1,2})?)", text)
-        if amt_match:
-            result["amount"] = float(amt_match.group(1).replace(',', ''))
-        acc_match = re.search(r"(?:from|via|using|in)\s+(\w+)", text)
-        if acc_match:
-            result["account"] = acc_match.group(1).upper()
+Defaults:
+- "account": "Cash"
+- "description": "Miscellaneous"
+- "date": None
+- "amount": 0.0
+- "limit": None
+- "from_account": None
+"from_account" only appears for transfers.
 
-    # Fallback amount extraction if still not set
-    if result["amount"] == 0.0:
-        amt_match = re.search(r"(\d+(?:,\d{3})*(?:\.\d{1,2})?)", text)
-        if amt_match:
-            result["amount"] = float(amt_match.group(1).replace(',', ''))
+Parse this: "{text}"
+"""
 
-    # Description extraction
-    desc_match = re.search(r"(?:on|for|as|for buying)\s+([\w\s]+?)(?=$|from|using|via|in)", text)
-    if desc_match:
-        result["description"] = desc_match.group(1).strip().capitalize()
-    else:
-        tail_match = re.search(r"(?:spent|paid|received|got|bought|sent|earned|added)\s+\d+(?:\.\d+)?\s+(?:on|for)\s+(.+)", text)
-        if tail_match:
-            result["description"] = tail_match.group(1).strip().capitalize()
+    try:
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=[prompt],
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": ExpenseParsed
+            }
+        )
 
-    return result
+        return json.loads(response.text)
+
+    except Exception as e:
+        print("Gemini parsing error:", e)
+        return ExpenseParsed(type="unknown", action="create", amount=0.0).dict()
+
+
+test_message = "received 500 from client on 25 May"
+parsed_result = parse_message(test_message)
+print(f"Parsed Result: {parsed_result}")
+# print(type(eval(parsed_result)))
+
+
+
 
 # Test cases
 test_cases = [
-    "cash is 0",
-    "cash = 0",
-    "hdfc = 2000",
-    "sent 500 from cash",
-    "got 1000 from gpay",
-    "spent 500 on groceries",
-    "received 500 from client on 25 May",
-    "earned 1000 from freelancing yesterday",
-    "added 250 to savings a week ago",
-    "delete last expense",
-    "balance of card",
-    "update last income to 600",
-    "transfer 1500 from cash to sb",
-    "moved 2000 from hdfc to icici"
+    # "cash is 0",
+    # "cash = 0",
+    # "hdfc = 2000",
+    # "sent 500 from cash",
+    # "got 1000 from grandma",
+    # "200.459 on ram from hdfc",
+    # "10,200.459 salary in hdfc",
+    # "spent 500 on groceries",
+    # "received 500 from client on 25 May",
+    # "earned 1000 from freelancing yesterday",
+    # "added 250 to savings a week ago",
+    # "delete last expense",
+    # "balance of card",
+    # "update last income to 600",
+    # "transfer 1500 from cash to sb",
+    # "moved 2000 from hdfc to icici",
+    "give me the last 5 transactions from hdfc",
+    "show me the last 15 transactions from hdfc",
+    "last 10 transactions",
 ]
 
-# # Show results
-# for msg in test_cases:
-#     print(f">>> {msg}")
-#     print(parse_message(msg), "\n")
+
+for message in test_cases:
+    parsed = parse_message(message)
+    print(f"Message: {message}\nParsed: {parsed}\n")
+    print(type(parsed))
