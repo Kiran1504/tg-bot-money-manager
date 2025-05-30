@@ -35,8 +35,9 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
     if not user:
         user = crud.create_user(db, telegram_id, name)
 
-    if text == "export":
+    if "export" in text.lower():
         start, end = parse_time_range(message)
+        print(start, end)
         with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             generate_pdf_report(user.id, db, tmp.name, start, end)
             try:
@@ -158,7 +159,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                 reply = f"No transactions found in {acc_name}."
             else:
                 lines = [
-                    f"- {txn.date.strftime('%d-%b')}: <b>₹{txn.amount:.2f}</b> - <i>{txn.type.title()} ({txn.description})</i>"
+                    f"• {txn.date.strftime('%d-%b')}: <b>₹{txn.amount:.2f}</b> - <i>{txn.type.title()} ({txn.description})</i>"
                     for txn in txns
                 ]
                 reply = f"<b>Last {len(txns)} transactions in {acc_name}:</b>\n\n" + "\n".join(lines)
