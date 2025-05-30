@@ -166,7 +166,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
     async with httpx.AsyncClient() as client:
         await client.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": chat_id, "text": reply}
+            json={"chat_id": chat_id, "text": reply, "parse_mode": "Markdown"}
         )
 
     return {"ok": True}
