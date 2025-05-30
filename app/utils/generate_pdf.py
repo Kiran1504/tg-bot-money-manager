@@ -85,11 +85,7 @@ def generate_pdf_report(user_id, db, output_path="expense_report.pdf", start=Non
     total_expense, total_income = 0, 0
 
     for acc in accounts:
-        txns = crud.get_transactions_by_account(db, acc.id)
-
-        # Filter by date if range is specified
-        if start and end:
-            txns = [t for t in txns if start <= t.timestamp.date() <= end]
+        txns = crud.get_transactions_by_account(db, acc.id, start=start, end=end)
 
         if txns:
             all_transactions.extend([(acc.name, t) for t in txns])

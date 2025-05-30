@@ -106,3 +106,13 @@ def get_recent_transactions(db: Session, account_id: int, limit: int = 5):
     return db.query(models.Transaction).filter(
         models.Transaction.account_id == account_id
     ).order_by(models.Transaction.date.desc()).limit(limit).all()
+
+def get_transactions_by_account(db: Session, account_id: int, start_date: datetime = None, end_date: datetime = None):
+    query = db.query(models.Transaction).filter(models.Transaction.account_id == account_id)
+
+    if start_date:
+        query = query.filter(models.Transaction.date >= start_date)
+    if end_date:
+        query = query.filter(models.Transaction.date <= end_date)
+
+    return query.order_by(models.Transaction.date.desc()).all()
