@@ -20,6 +20,10 @@ class ExpenseParsed(BaseModel):
     from_account: Optional[str] = None
     limit: Optional[int] = None 
 
+class TimeRange(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+
 # Set up Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
 MODEL= os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
@@ -93,8 +97,10 @@ def parse_time_range(msg: str):
 Extract the start and end date from the following message. 
 Today's date is {datetime.now(pytz.timezone("Asia/Kolkata")).strftime('%Y-%m-%d')}.
 The format should be:
-start: YYYY-MM-DD
+{{
+start: YYYY-MM-DD,
 end: YYYY-MM-DD
+}}
 Message: "{msg}"
 Reply only with start and end in the format:
 start: YYYY-MM-DD
@@ -106,14 +112,15 @@ end: YYYY-MM-DD
             contents=[prompt],
             config={
                 "response_mime_type": "application/json",
-                "response_schema": {
-                    "start": str,
-                    "end": str
-                }
+                "response_schema": TimeRange
             }
         )
+        print(prompt)
         print("Raw Response:", response.text)
-        return json.loads(response.text)
+        res = json.loads(response.text)
+        res['start'] = res['start'].replace("_", "T")
+        res['end'] = res['end'].replace("_", "T")
+        return res
     except Exception as e:
         print("Gemini time range parsing error:", e)
         return {"start": None, "end": None}
@@ -142,6 +149,9 @@ test_cases = [
     "last 10 transactions",
 ]
 
+print(parse_time_range("export last week"))
+print(parse_time_range("export this week"))
+print(type(parse_time_range("export this month")['start']))
 
 # for message in test_cases:
 #     parsed = parse_message(message)
