@@ -112,6 +112,7 @@ end: YYYY-MM-DD
                 }
             }
         )
+        print("Raw Response:", response.text)
         return json.loads(response.text)
     except Exception as e:
         print("Gemini time range parsing error:", e)

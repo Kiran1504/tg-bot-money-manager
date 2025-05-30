@@ -85,7 +85,7 @@ def generate_pdf_report(user_id, db, output_path="expense_report.pdf", start=Non
     total_expense, total_income = 0, 0
 
     for acc in accounts:
-        txns = crud.get_transactions_by_account(db, acc.id, start=start, end=end)
+        txns = crud.get_transactions_by_account(db, acc.id, start, end)
 
         if txns:
             all_transactions.extend([(acc.name, t) for t in txns])
