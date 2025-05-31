@@ -42,11 +42,12 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
             generate_pdf_report(user.id, db, tmp.name, parsed_time['start'], parsed_time['end'])
             try:
                 with open(tmp.name, "rb") as f:
-                    await client.post(
-                        f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
-                        files={"document": f},
-                        data={"chat_id": chat_id, "caption": f"📄 Expense Report"}
-                    )
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
+                            files={"document": f},
+                            data={"chat_id": chat_id, "caption": f"📄 Expense Report"}
+                        )
             finally:
                 os.remove(tmp.name)
         return {"ok": True}
