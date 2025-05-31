@@ -141,7 +141,12 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         else:
             # Step 1: Ask Gemini what fields the user meant to update
             update_fields = extract_update_fields_from_msg(text)
-            updated_values = {}
+            updated_values = {
+                "new_amount": None,
+                "new_description": None,
+                "new_type": None,
+                "new_date": None
+            }
             if update_fields.get("amount"):
                 updated_values["new_amount"] = update_fields["amount"]
             if update_fields.get("description"):
