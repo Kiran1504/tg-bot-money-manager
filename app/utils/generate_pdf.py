@@ -9,16 +9,27 @@ class PDF(FPDF):
         self.ln(3)
 
     def add_summary_line(self, total_expense, total_income):
-        # Summary: One line, red and green values side by side
+        # Summary: One line, red and green values side by side, centered
         self.set_font("Arial", "B", 12)
+        
+        # Calculate starting position to center the content
+        page_width = self.w - 2 * self.l_margin  # Available width
+        content_width = 140  # Total width for both items
+        start_x = self.l_margin + (page_width - content_width) / 2
+        
+        # Position cursor at calculated start position
+        self.set_x(start_x)
+        
         # Red for expense
         self.set_text_color(200, 0, 0)
-        self.cell(50, 10, f"Total Expense: Rs.{round(total_expense, 2)}", ln=0)
+        self.cell(70, 10, f"Total Expense: Rs.{round(total_expense, 2)}", ln=0, align="C")
+        
         # Green for income
         self.set_text_color(0, 150, 0)
-        self.cell(0, 10, f"Total Income: Rs.{round(total_income, 2)}", ln=1)
+        self.cell(70, 10, f"Total Income: Rs.{round(total_income, 2)}", ln=1, align="C")
+        
         self.set_text_color(0, 0, 0)  # Reset color
-        self.ln(3)
+        self.ln(5)
 
     def add_account_table(self, title, transactions):
         self.set_font("Arial", "B", 11)
@@ -84,9 +95,9 @@ def generate_pdf_report(user_id, db, output_path="expense_report.pdf", start=Non
 
     total_expense, total_income = 0, 0
 
+    # First, calculate totals by iterating through all transactions
     for acc in accounts:
         txns = crud.get_transactions_by_account(db, acc.id, start, end)
-
         if txns:
             all_transactions.extend([(acc.name, t) for t in txns])
             for t in txns:
@@ -94,10 +105,15 @@ def generate_pdf_report(user_id, db, output_path="expense_report.pdf", start=Non
                     total_income += t.amount
                 else:
                     total_expense += t.amount
-            pdf.add_account_table(acc.name, txns)
 
-    # ✅ Add summary on first page itself
+    # ✅ Add summary at the top, right after header
     pdf.add_summary_line(total_expense, total_income)
+
+    # Then add account tables
+    for acc in accounts:
+        txns = crud.get_transactions_by_account(db, acc.id, start, end)
+        if txns:
+            pdf.add_account_table(acc.name, txns)
 
     # ✅ Add combined sheet (n+1)
     if all_transactions:
