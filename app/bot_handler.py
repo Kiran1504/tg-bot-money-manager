@@ -39,9 +39,10 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         parsed_time = parse_time_range(message)
         print(parsed_time['start'], parsed_time['end'])
         with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            generate_pdf_report(user.id, db,  f"report_{parsed_time['start'][:10]}_{parsed_time['end'][:10]}.pdf", parsed_time['start'], parsed_time['end'])
+            file_name = f"report_{parsed_time['start'][:10]}_{parsed_time['end'][:10]}.pdf"
+            generate_pdf_report(user.id, db,  file_name, parsed_time['start'], parsed_time['end'])
             try:
-                with open(tmp.name, "rb") as f:
+                with open(file_name, "rb") as f:
                     async with httpx.AsyncClient() as client:
                         await client.post(
                             f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
@@ -49,7 +50,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                             data={"chat_id": chat_id, "caption": f"📄 Expense Report"}
                         )
             finally:
-                os.remove(tmp.name)
+                os.remove(file_name)
         return {"ok": True}
 
     parsed = parse_message(text)
