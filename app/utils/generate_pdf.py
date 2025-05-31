@@ -101,10 +101,11 @@ def generate_pdf_report(user_id, db, output_path="expense_report.pdf", start=Non
         if txns:
             all_transactions.extend([(acc.name, t) for t in txns])
             for t in txns:
-                if t.type == "income":
-                    total_income += t.amount
-                else:
-                    total_expense += t.amount
+                if not t.description.lower() == "balance correction":
+                    if t.type == "income":
+                        total_income += t.amount
+                    else:
+                        total_expense += t.amount
 
     # ✅ Add summary at the top, right after header
     pdf.add_summary_line(total_expense, total_income)
