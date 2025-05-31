@@ -156,7 +156,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                     pass  # Skip invalid date
 
             if updated_values:
-                updated_txn = crud.update_last_transaction(db, acc.id, **updated_values)
+                updated_txn = crud.update_last_transaction(db, acc.id, updated_values['new_amount'] or None, updated_values['new_description'] or None, updated_values['new_type'] or None, updated_values['new_date'] or None)
                 reply_parts = []
 
                 if "new_amount" in updated_values:
