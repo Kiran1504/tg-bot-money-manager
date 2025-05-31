@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from app.db import models
-from datetime import datetime
+from datetime import datetime, timedelta
+from dateutil import parser
+import pytz
 
 def create_user(db: Session, telegram_id: int, name: str):
     user = models.User(telegram_id=telegram_id, name=name)
@@ -31,7 +33,7 @@ def add_transaction(db: Session, account_id: int, amount: float, description: st
         amount=amount,
         description=description,
         type=type,
-        date=date if date else datetime.utcnow()
+        date=date if date else datetime.now(pytz.timezone("Asia/Kolkata"))
     )
     db.add(transaction)
 
@@ -107,14 +109,23 @@ def get_recent_transactions(db: Session, account_id: int, limit: int = 5):
         models.Transaction.account_id == account_id
     ).order_by(models.Transaction.date.desc()).limit(limit).all()
 
-def get_transactions_by_account(db: Session, account_id: int, start_date: datetime = None, end_date: datetime = None):
+def get_transactions_by_account(db: Session, account_id: int, start_date: str = None, end_date: str = None):
     query = db.query(models.Transaction).filter(models.Transaction.account_id == account_id)
+    india_tz = pytz.timezone("Asia/Kolkata")
+    utc_tz = pytz.utc
 
     if start_date:
-        start_date = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
-        query = query.filter(models.Transaction.date >= start_date)
+        start_date = parser.isoparse(start_date).astimezone(india_tz)
+    else:
+        start_date = datetime.now(india_tz) - timedelta(days=30)  # Default: last 30 days
+
+    # Convert end_date from UTC to IST
     if end_date:
-        end_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
-        query = query.filter(models.Transaction.date <= end_date)
+        end_date = parser.isoparse(end_date).astimezone(india_tz)
+    else:
+        end_date = datetime.now(india_tz)
+
+    query = query.filter(models.Transaction.date >= start_date)
+    query = query.filter(models.Transaction.date <= end_date)
 
     return query.order_by(models.Transaction.date.desc()).all()
