@@ -139,44 +139,38 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         if not acc:
             reply = f"Account {acc_name} does not exist."
         else:
-            last_txn = crud.get_last_transaction(db, acc.id)
+            # Step 1: Ask Gemini what fields the user meant to update
+            update_fields = extract_update_fields_from_msg(message.text)
+            updated_values = {}
+            if update_fields.get("amount"):
+                updated_values["new_amount"] = update_fields["amount"]
+            if update_fields.get("description"):
+                updated_values["new_description"] = update_fields["description"]
+            if update_fields.get("type") in ["income", "expense"]:
+                updated_values["new_type"] = update_fields["type"]
+            if update_fields.get("date"):
+                try:
+                    parsed_date = parser.isoparse(update_fields['date']).astimezone(pytz.timezone("Asia/Kolkata"))
+                    updated_values["new_date"] = parsed_date
+                except Exception:
+                    pass  # Skip invalid date
 
-            if not last_txn:
-                reply = f"No transactions found in {acc_name} to update."
+            if updated_values:
+                updated_txn = crud.update_last_transaction(db, acc.id, **updated_values)
+                reply_parts = []
+
+                if "new_amount" in updated_values:
+                    reply_parts.append(f"₹{updated_values['new_amount']}")
+                if "new_description" in updated_values:
+                    reply_parts.append(f"{updated_values['new_description']}")
+                if "new_type" in updated_values:
+                    reply_parts.append(f"{updated_values['new_type']}")
+                if "new_date" in updated_values:
+                    reply_parts.append(f"on {updated_values['new_date'].strftime('%Y-%m-%d')}")
+
+                reply = f"Updated last transaction in <b>{acc_name}:</b> " + ", ".join(reply_parts)
             else:
-                # Step 1: Ask Gemini what fields the user meant to update
-                update_fields = extract_update_fields_from_msg(message.text)
-
-                updated_values = {}
-                if update_fields.get("amount"):
-                    updated_values["new_amount"] = update_fields["amount"]
-                if update_fields.get("description"):
-                    updated_values["new_description"] = update_fields["description"]
-                if update_fields.get("type") in ["income", "expense"]:
-                    updated_values["new_type"] = update_fields["type"]
-                if update_fields.get("date"):
-                    try:
-                        parsed_date = parser.isoparse(update_fields['date']).astimezone(pytz.timezone("Asia/Kolkata"))
-                        updated_values["new_date"] = parsed_date
-                    except Exception:
-                        pass  # Skip invalid date
-
-                if updated_values:
-                    updated_txn = crud.update_last_transaction(db, acc.id, **updated_values)
-                    reply_parts = []
-
-                    if "new_amount" in updated_values:
-                        reply_parts.append(f"₹{updated_values['new_amount']}")
-                    if "new_description" in updated_values:
-                        reply_parts.append(f"{updated_values['new_description']}")
-                    if "new_type" in updated_values:
-                        reply_parts.append(f"{updated_values['new_type']}")
-                    if "new_date" in updated_values:
-                        reply_parts.append(f"on {updated_values['new_date'].strftime('%Y-%m-%d')}")
-
-                    reply = f"Updated last transaction in {acc_name}: " + ", ".join(reply_parts)
-                else:
-                    reply = "No valid fields provided to update."
+                reply = "No valid fields provided to update."
 
     elif parsed["action"] == "read" and parsed["type"] == "transaction":
         acc_name = parsed.get("account", "Cash")
