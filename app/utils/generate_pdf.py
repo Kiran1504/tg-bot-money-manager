@@ -3,35 +3,28 @@ from dateutil.parser import parse as date_parse
 from app.db import crud
 
 class PDF(FPDF):
-
-    def __init__(self):
-        super().__init__()
-        self.add_font('DejaVu', '', 'fonts/DejaVuSans.ttf', uni=True)
-        self.add_font('DejaVu', 'B', 'fonts/DejaVuSans-Bold.ttf', uni=True)  # Optional bold
-        self.set_font('DejaVu', '', 12) 
-
     def header(self):
-        self.set_font("DejaVu", "B", 14)
+        self.set_font("Arial", "B", 14)
         self.cell(0, 10, "Expense Report", border=False, ln=True, align="C")
         self.ln(3)
 
     def add_summary_line(self, total_expense, total_income):
         # Summary: One line, red and green values side by side
-        self.set_font("DejaVu", "B", 12)
+        self.set_font("Arial", "B", 12)
         # Red for expense
         self.set_text_color(200, 0, 0)
-        self.cell(50, 10, f"Total Expense: ₹{round(total_expense, 2)}", ln=0)
+        self.cell(50, 10, f"Total Expense: Rs.{round(total_expense, 2)}", ln=0)
         # Green for income
         self.set_text_color(0, 150, 0)
-        self.cell(0, 10, f"Total Income: ₹{round(total_income, 2)}", ln=1)
+        self.cell(0, 10, f"Total Income: Rs.{round(total_income, 2)}", ln=1)
         self.set_text_color(0, 0, 0)  # Reset color
         self.ln(3)
 
     def add_account_table(self, title, transactions):
-        self.set_font("DejaVu", "B", 14)
+        self.set_font("Arial", "B", 11)
         self.cell(0, 10, title, ln=True)
 
-        self.set_font("DejaVu", "B", 9)
+        self.set_font("Arial", "B", 9)
         self.cell(30, 8, "Date", 1)
         self.cell(25, 8, "Spent", 1)
         self.cell(25, 8, "Credited", 1)
@@ -39,7 +32,7 @@ class PDF(FPDF):
         self.cell(75, 8, "Description", 1)
         self.ln()
 
-        self.set_font("DejaVu", "", 9)
+        self.set_font("Arial", "", 9)
         balance = 0
         for txn in transactions:
             date = txn.timestamp.strftime("%Y-%m-%d")
@@ -57,10 +50,10 @@ class PDF(FPDF):
         self.ln(5)
 
     def add_combined_sheet(self, all_transactions):
-        self.set_font("DejaVu", "B", 12)
+        self.set_font("Arial", "B", 12)
         self.cell(0, 10, "All Accounts Combined", ln=True)
 
-        self.set_font("DejaVu", "B", 14)
+        self.set_font("Arial", "B", 9)
         self.cell(30, 8, "Account", 1)
         self.cell(30, 8, "Date", 1)
         self.cell(25, 8, "Spent", 1)
@@ -68,7 +61,7 @@ class PDF(FPDF):
         self.cell(80, 8, "Description", 1)
         self.ln()
 
-        self.set_font("DejaVu", "", 9)
+        self.set_font("Arial", "", 9)
         for acc_name, txn in sorted(all_transactions, key=lambda x: x[1].timestamp):
             date = txn.timestamp.strftime("%Y-%m-%d")
             spent = txn.amount if txn.type == "expense" else ""
