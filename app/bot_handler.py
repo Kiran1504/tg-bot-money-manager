@@ -38,7 +38,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         user = crud.create_user(db, telegram_id, name)
 
     if "export" in text.lower():
-        parsed_time = parse_time_range(message)
+        parsed_time = parse_time_range(text)
         print(parsed_time['start'], parsed_time['end'])
         with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file_name = f"report_{parsed_time['start'][:10]}_{parsed_time['end'][:10]}.pdf"
@@ -140,7 +140,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
             reply = f"Account {acc_name} does not exist."
         else:
             # Step 1: Ask Gemini what fields the user meant to update
-            update_fields = extract_update_fields_from_msg(message.text)
+            update_fields = extract_update_fields_from_msg(text)
             updated_values = {}
             if update_fields.get("amount"):
                 updated_values["new_amount"] = update_fields["amount"]
