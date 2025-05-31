@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from dateutil import parser
 import pytz
 
+india_tz = pytz.timezone("Asia/Kolkata")
+
 def create_user(db: Session, telegram_id: int, name: str):
     user = models.User(telegram_id=telegram_id, name=name)
     db.add(user)
@@ -27,7 +29,7 @@ def get_account_by_name(db: Session, user_id: int, account_name: str):
         models.Account.name.ilike(account_name)
     ).first()
 
-def add_transaction(db: Session, account_id: int, amount: float, description: str, type: str, date: datetime =  datetime.utcnow()):
+def add_transaction(db: Session, account_id: int, amount: float, description: str, type: str, date: datetime =  datetime.now(india_tz)):
     transaction = models.Transaction(
         account_id=account_id,
         amount=amount,
@@ -111,8 +113,6 @@ def get_recent_transactions(db: Session, account_id: int, limit: int = 5):
 
 def get_transactions_by_account(db: Session, account_id: int, start_date: str = None, end_date: str = None):
     query = db.query(models.Transaction).filter(models.Transaction.account_id == account_id)
-    india_tz = pytz.timezone("Asia/Kolkata")
-    utc_tz = pytz.utc
 
     if start_date:
         start_date = parser.isoparse(start_date).astimezone(india_tz)

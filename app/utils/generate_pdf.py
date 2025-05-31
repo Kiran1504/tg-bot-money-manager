@@ -35,7 +35,7 @@ class PDF(FPDF):
         self.set_font("Arial", "", 9)
         balance = 0
         for txn in transactions:
-            date = txn.timestamp.strftime("%Y-%m-%d")
+            date = txn.date.strftime("%Y-%m-%d")
             spent = txn.amount if txn.type == "expense" else ""
             credited = txn.amount if txn.type == "income" else ""
             balance += txn.amount if txn.type == "income" else -txn.amount
@@ -62,8 +62,8 @@ class PDF(FPDF):
         self.ln()
 
         self.set_font("Arial", "", 9)
-        for acc_name, txn in sorted(all_transactions, key=lambda x: x[1].timestamp):
-            date = txn.timestamp.strftime("%Y-%m-%d")
+        for acc_name, txn in sorted(all_transactions, key=lambda x: x[1].date):
+            date = txn.date.strftime("%Y-%m-%d")
             spent = txn.amount if txn.type == "expense" else ""
             credited = txn.amount if txn.type == "income" else ""
             desc = txn.description or ""
