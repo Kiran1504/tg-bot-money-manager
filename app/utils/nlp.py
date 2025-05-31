@@ -26,7 +26,7 @@ class TimeRange(BaseModel):
 
 # Set up Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
-MODEL= os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
+MODEL= os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -115,11 +115,10 @@ end: YYYY-MM-DD
                 "response_schema": TimeRange
             }
         )
-        print(prompt)
         print("Raw Response:", response.text)
         res = json.loads(response.text)
-        res['start'] = res['start'].replace("_", "T")
-        res['end'] = res['end'].replace("_", "T")
+        res['start'] = res['start'].replace("_", "T") if res['start'] else None
+        res['end'] = res['end'].replace("_", "T") if res['end'] else None
         return res
     except Exception as e:
         print("Gemini time range parsing error:", e)
@@ -149,9 +148,9 @@ test_cases = [
     "last 10 transactions",
 ]
 
-print(parse_time_range("export last week"))
-print(parse_time_range("export this week"))
-print(type(parse_time_range("export this month")['start']))
+# print(parse_time_range("export last week"))
+# print(parse_time_range("export"))
+# print(type(parse_time_range("export this month")['start']))
 
 # for message in test_cases:
 #     parsed = parse_message(message)

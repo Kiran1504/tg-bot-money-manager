@@ -36,10 +36,10 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         user = crud.create_user(db, telegram_id, name)
 
     if "export" in text.lower():
-        start, end = parse_time_range(message)
-        print(start, end)
+        parsed_time = parse_time_range(message)
+        print(parsed_time['start'], parsed_time['end'])
         with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            generate_pdf_report(user.id, db, tmp.name, start, end)
+            generate_pdf_report(user.id, db, tmp.name, parsed_time['start'], parsed_time['end'])
             try:
                 with open(tmp.name, "rb") as f:
                     await client.post(

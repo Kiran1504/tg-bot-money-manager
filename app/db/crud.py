@@ -111,8 +111,10 @@ def get_transactions_by_account(db: Session, account_id: int, start_date: dateti
     query = db.query(models.Transaction).filter(models.Transaction.account_id == account_id)
 
     if start_date:
+        start_date = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
         query = query.filter(models.Transaction.date >= start_date)
     if end_date:
+        end_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
         query = query.filter(models.Transaction.date <= end_date)
 
     return query.order_by(models.Transaction.date.desc()).all()
