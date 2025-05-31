@@ -39,7 +39,7 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
         parsed_time = parse_time_range(message)
         print(parsed_time['start'], parsed_time['end'])
         with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            generate_pdf_report(user.id, db, tmp.name, f"report_{parsed_time['start'][:10]}_{parsed_time['end'][:10]}.pdf", parsed_time['start'], parsed_time['end'])
+            generate_pdf_report(user.id, db,  f"report_{parsed_time['start'][:10]}_{parsed_time['end'][:10]}.pdf", parsed_time['start'], parsed_time['end'])
             try:
                 with open(tmp.name, "rb") as f:
                     async with httpx.AsyncClient() as client:
