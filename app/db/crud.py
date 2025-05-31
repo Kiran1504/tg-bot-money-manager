@@ -17,7 +17,7 @@ def get_user(db: Session, telegram_id: int):
     return db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
 
 def create_account(db: Session, user_id: int, account_name: str, initial_balance: float):
-    account = models.Account(user_id=user_id, name=account_name, balance=initial_balance)
+    account = models.Account(user_id=user_id, name=account_name.upper(), balance=initial_balance)
     db.add(account)
     db.commit()
     db.refresh(account)
