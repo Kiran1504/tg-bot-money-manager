@@ -24,6 +24,13 @@ class TimeRange(BaseModel):
     start: Optional[datetime] = None
     end: Optional[datetime] = None
 
+class UpdateFields(BaseModel):
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    type: Optional[Literal["income", "expense"]] = None
+    date: Optional[datetime] = None  # ISO format
+
+
 # Set up Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
 MODEL= os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
@@ -52,7 +59,7 @@ Instructions:
 - "transfer": **ONLY WHEN `TRANSFER` or `t:` IS MENTIONED in the input text** (e.g., transfer 200 from Cash to HDFC,t: 1111 from HDFC to SBI, t: ATM withdrawal).
 - "balance": Request for current balance of an account.
 - "balance_adjustment": Directly setting a value to an account (e.g., "Cash is 1000", "HDFC = 0").
-- "transaction": When user asks for last few transactions or transaction history.
+- "transaction": for displaying transaction history. (action="read")
 - "unknown": If the type cannot be determined.
 2. Actions:
 - "create": Adding a new income or expense.
@@ -91,7 +98,6 @@ Parse this: "{text}"
         return ExpenseParsed(type="unknown", action="create", amount=0.0).dict()
 
 
-
 def parse_time_range(msg: str):
     prompt = f"""
 Extract the start and end date from the following message. 
@@ -125,6 +131,37 @@ end: YYYY-MM-DD
         return {"start": None, "end": None}
 
 
+def extract_update_fields_from_msg(msg: str) -> dict:
+    prompt = f"""
+You are a finance assistant. Extract ONLY the fields that the user intends to update from the message below.
+
+The response must be in JSON format like:
+{{
+  "amount": float or null,
+  "description": string or null,
+  "type": "income" | "expense" or null,
+  "date": "YYYY-MM-DD" or null
+}}
+
+If a field is not meant to be updated, return null for that field.
+
+Message: "{msg}"
+"""
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=[prompt],
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": UpdateFields
+            }
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print("Gemini update field extraction error:", e)
+        return {}
+
 # Test cases
 test_cases = [
     # "cash is 0",
@@ -153,6 +190,6 @@ test_cases = [
 # print(type(parse_time_range("export this month")['start']))
 
 # for message in test_cases:
-#     parsed = parse_message(message)
-#     print(f"Message: {message}\nParsed: {parsed}\n")
-#     print(type(parsed))
+# parsed = extract_update_fields_from_msg("Update date of last transaction to 5th June 25")
+# print(f"Message: Update date of last transaction to 5th June 25\nParsed: {parsed}\n")
+# print(type(parsed))

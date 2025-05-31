@@ -2,9 +2,11 @@
 from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.utils.nlp import parse_message, parse_time_range
+from app.utils.nlp import parse_message, parse_time_range, extract_update_fields_from_msg
 from app.utils.generate_pdf import generate_pdf_report
 from tempfile import NamedTemporaryFile
+from dateutil import parser
+import pytz
 from app.db import crud
 import httpx
 import os
@@ -133,20 +135,48 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
     elif parsed["action"] == "update":
         acc_name = parsed.get("account", "Cash")
         acc = crud.get_account_by_name(db, user.id, acc_name)
-        if acc:
-            updated_txn = crud.update_last_transaction(
-                db, acc.id,
-                new_amount=parsed["amount"],
-                new_description=parsed["description"],
-                new_type=parsed["type"],
-                new_date=parsed["date"]
-            )
-            if updated_txn:
-                reply = f"Updated last transaction in {acc_name} to ₹{parsed['amount']} ({parsed['description']})."
-            else:
-                reply = f"No transactions found in {acc_name} to update."
-        else:
+
+        if not acc:
             reply = f"Account {acc_name} does not exist."
+        else:
+            last_txn = crud.get_last_transaction(db, acc.id)
+
+            if not last_txn:
+                reply = f"No transactions found in {acc_name} to update."
+            else:
+                # Step 1: Ask Gemini what fields the user meant to update
+                update_fields = extract_update_fields_from_msg(message.text)
+
+                updated_values = {}
+                if update_fields.get("amount"):
+                    updated_values["new_amount"] = update_fields["amount"]
+                if update_fields.get("description"):
+                    updated_values["new_description"] = update_fields["description"]
+                if update_fields.get("type") in ["income", "expense"]:
+                    updated_values["new_type"] = update_fields["type"]
+                if update_fields.get("date"):
+                    try:
+                        parsed_date = parser.isoparse(update_fields['date']).astimezone(pytz.timezone("Asia/Kolkata"))
+                        updated_values["new_date"] = parsed_date
+                    except Exception:
+                        pass  # Skip invalid date
+
+                if updated_values:
+                    updated_txn = crud.update_last_transaction(db, acc.id, **updated_values)
+                    reply_parts = []
+
+                    if "new_amount" in updated_values:
+                        reply_parts.append(f"₹{updated_values['new_amount']}")
+                    if "new_description" in updated_values:
+                        reply_parts.append(f"{updated_values['new_description']}")
+                    if "new_type" in updated_values:
+                        reply_parts.append(f"{updated_values['new_type']}")
+                    if "new_date" in updated_values:
+                        reply_parts.append(f"on {updated_values['new_date'].strftime('%Y-%m-%d')}")
+
+                    reply = f"Updated last transaction in {acc_name}: " + ", ".join(reply_parts)
+                else:
+                    reply = "No valid fields provided to update."
 
     elif parsed["action"] == "read" and parsed["type"] == "transaction":
         acc_name = parsed.get("account", "Cash")

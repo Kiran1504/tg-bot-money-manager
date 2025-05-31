@@ -91,7 +91,7 @@ def update_last_transaction(
         account.balance -= txn.amount
 
     # Apply new values
-    txn.amount = new_amount
+    txn.amount = new_amount or txn.amount
     txn.description = new_description or txn.description
     txn.type = new_type or txn.type
     txn.date = new_date or txn.date
