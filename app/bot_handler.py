@@ -158,19 +158,23 @@ async def handle_telegram_webhook(req: Request, db: Session = Depends(get_db)):
                     parsed_date = parser.isoparse(update_fields['date']).astimezone(pytz.timezone("Asia/Kolkata"))
                     updated_values["new_date"] = parsed_date
                 except Exception:
-                    pass  # Skip invalid date
+                    pass  
 
             if updated_values:
                 updated_txn = crud.update_last_transaction(db, acc.id, updated_values['new_amount'] or None, updated_values['new_description'] or None, updated_values['new_type'] or None, updated_values['new_date'] or None)
                 reply_parts = []
 
-                if "new_amount" in updated_values:
+                print("-"*30)
+                print("updated values: ", updated_values,"\nupdated Fields: ", update_fields)
+                print("-"*30)
+
+                if "new_amount" in updated_values and updated_values['new_amount']:
                     reply_parts.append(f"₹{updated_values['new_amount']}")
-                if "new_description" in updated_values:
+                if "new_description" in updated_values and updated_values['new_description']:
                     reply_parts.append(f"{updated_values['new_description']}")
-                if "new_type" in updated_values:
+                if "new_type" in updated_values and updated_values['new_type']:
                     reply_parts.append(f"{updated_values['new_type']}")
-                if "new_date" in updated_values:
+                if "new_date" in updated_values and updated_values["new_date"]:
                     reply_parts.append(f"on {updated_values['new_date'].strftime('%Y-%m-%d')}")
 
                 reply = f"Updated last transaction in <b>{acc_name}:</b> " + ", ".join(reply_parts)
